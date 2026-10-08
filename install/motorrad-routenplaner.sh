@@ -35,12 +35,14 @@ dump_diagnostics(){
   pct exec "$CTID" -- systemctl status caddy --no-pager 2>&1 | head -n 40 || true
   pct exec "$CTID" -- journalctl -u caddy -n 30 --no-pager 2>&1 | tail -n 30 || true
   log "--- curl app direkt ---"
-  pct exec "$CTID" -- bash -c "curl -v http://127.0.0.1:${APP_PORT}/api/health 2>&1 | head -n 30; echo \"curl-app-exit=\$?\"" || true
+  pct exec "$CTID" -- bash -c "set -o pipefail; curl -v --max-time 10 http://127.0.0.1:${APP_PORT}/api/health 2>&1 | head -n 30; echo \"curl-app-exit=\$?\"" || true
   log "--- curl via caddy ---"
-  pct exec "$CTID" -- bash -c "curl -kv https://127.0.0.1:${HTTPS_PORT}/api/health 2>&1 | head -n 30; echo \"curl-caddy-exit=\$?\"" || true
+  pct exec "$CTID" -- bash -c "set -o pipefail; curl -kv --max-time 10 https://127.0.0.1:${HTTPS_PORT}/api/health 2>&1 | head -n 30; echo \"curl-caddy-exit=\$?\"" || true
 }
 on_err(){
-  msg_err "Befehl fehlgeschlagen: $BASH_COMMAND (Zeile $LINENO, Code $?)"
+  local code=$?
+  [[ $code -eq 0 ]] && return 0
+  msg_err "Befehl fehlgeschlagen: $BASH_COMMAND (Zeile $LINENO, Code $code)"
   if [[ "$DIAG_ARMED" -eq 1 ]]; then dump_diagnostics; fi
 }
 trap on_err ERR
@@ -184,13 +186,22 @@ setup_services(){
   pct push "$CTID" "$caddy_gen" /etc/caddy/Caddyfile
   rm -f "$caddy_tmp" "$caddy_gen"
   pct exec "$CTID" -- bash -ec "(command -v ufw >/dev/null && ufw allow 80,${HTTPS_PORT},${APP_PORT}/tcp || true); (iptables -C INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true)"
-  pct exec "$CTID" -- bash -ec "systemctl daemon-reload && systemctl enable --now motorrad-routenplaner && systemctl enable --now caddy && sleep 3 && systemctl is-active motorrad-routenplaner && systemctl is-active caddy"
+  pct exec "$CTID" -- bash -ec "systemctl daemon-reload && systemctl enable --now motorrad-routenplaner && systemctl enable --now caddy && caddy validate --config /etc/caddy/Caddyfile && (systemctl reload caddy || systemctl restart caddy) && sleep 3 && systemctl is-active motorrad-routenplaner && systemctl is-active caddy"
   msg_ok "Services laufen"
 }
 verify_and_print(){
   DIAG_ARMED=1
-  if ! pct exec "$CTID" -- bash -ec "curl -fsS http://127.0.0.1:${APP_PORT}/api/health | grep -q '\"ok\":true' && curl -fkSs https://127.0.0.1:${HTTPS_PORT}/api/health | grep -q '\"ok\":true'"; then
-    msg_err "Verify fehlgeschlagen (Exit-Code $?)"
+  # Backend braucht nach Start einige Sekunden (Profile laden), Caddy ggf.
+  # ebenfalls – daher Retry-Loop statt einzelnem Curl (max ~90s).
+  local ok_app=0 ok_caddy=0 i
+  for i in $(seq 1 18); do
+    pct exec "$CTID" -- bash -c "curl -fsS --max-time 10 http://127.0.0.1:${APP_PORT}/api/health | grep -q '\"ok\":true'" 2>/dev/null && ok_app=1 || true
+    pct exec "$CTID" -- bash -c "curl -fkSs --max-time 10 https://127.0.0.1:${HTTPS_PORT}/api/health | grep -q '\"ok\":true'" 2>/dev/null && ok_caddy=1 || true
+    if [[ $ok_app -eq 1 && $ok_caddy -eq 1 ]]; then break; fi
+    sleep 5
+  done
+  if [[ $ok_app -ne 1 || $ok_caddy -ne 1 ]]; then
+    msg_err "Verify fehlgeschlagen (app=$ok_app caddy=$ok_caddy)"
     dump_diagnostics
     die "Verify fehlgeschlagen – Diagnose oben."
   fi
