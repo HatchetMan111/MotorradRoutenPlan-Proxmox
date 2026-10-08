@@ -2,6 +2,6 @@
   redir https://{http.request.host}{uri}
 }
 :443 {
-  tls internal
+  tls /etc/caddy/motorrad.crt /etc/caddy/motorrad.key
   reverse_proxy 127.0.0.1:8080
 }

@@ -185,6 +185,10 @@ setup_services(){
   pct exec "$CTID" -- bash -ec "cp -n /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak 2>/dev/null || true"
   pct push "$CTID" "$caddy_gen" /etc/caddy/Caddyfile
   rm -f "$caddy_tmp" "$caddy_gen"
+  # Eigenes TLS-Zertifikat (deterministisch, inkl. IP-SANs) statt `tls internal`:
+  # Caddy stellt ohne konfigurierten Hostnamen kein Zertifikat aus (Handshake
+  # Fehler 35), on-demand wäre DHCP-fragil. Regenerieren nur bei IP-Wechsel.
+  pct exec "$CTID" -- bash -ec "apt-get install -y openssl && if ! openssl x509 -in /etc/caddy/motorrad.crt -noout -text 2>/dev/null | grep -q '${IP}'; then openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /etc/caddy/motorrad.key -out /etc/caddy/motorrad.crt -subj '/CN=motorrad-routenplaner' -addext 'subjectAltName=IP:${IP},IP:127.0.0.1,DNS:motorrad-routenplaner' && chmod 600 /etc/caddy/motorrad.key && echo 'TLS-Zertifikat (10J, SANs ${IP}/127.0.0.1) erzeugt'; else echo 'TLS-Zertifikat passt zur IP ${IP}'; fi"
   pct exec "$CTID" -- bash -ec "(command -v ufw >/dev/null && ufw allow 80,${HTTPS_PORT},${APP_PORT}/tcp || true); (iptables -C INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true)"
   pct exec "$CTID" -- bash -ec "systemctl daemon-reload && systemctl enable --now motorrad-routenplaner && systemctl enable --now caddy && caddy validate --config /etc/caddy/Caddyfile && (systemctl reload caddy || systemctl restart caddy) && sleep 3 && systemctl is-active motorrad-routenplaner && systemctl is-active caddy"
   msg_ok "Services laufen"
