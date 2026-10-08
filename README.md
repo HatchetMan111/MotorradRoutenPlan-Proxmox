@@ -222,3 +222,20 @@ lässt sich frei anpassen (wird im Browser gemerkt).
 
 React · TypeScript · Vite · MapLibre GL · OpenFreeMap · Fastify · Turf.js · BRouter ·
 OpenStreetMap (Overpass, Nominatim) · Autobahn-GmbH-API · Open-Meteo (Wetter).
+
+## Proxmox-LXC (Einzeiler)
+
+Auf dem Proxmox-Host als root:
+
+```bash
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/mzluzifer/motorrad-routenplaner/main/install/motorrad-routenplaner.sh)"
+```
+
+Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - ...)"`.
+Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy.
+
+- Desktop: `http://[LXC-IP]:8080`
+- Handy im gleichen WLAN (mit GPS): `https://[LXC-IP]/` — beim ersten Mal Zertifikatswarnung bestätigen (self-signed, `tls internal`), danach ist `navigator.geolocation` freigegeben. Notlösung: `chrome://flags#unsafely-treat-insecure-origins-as-secure`.
+- Update: Script erneut laufen lassen (idempotent: git pull + rebuild, kein neuer CT).
+- Deinstall: `pct stop <CTID> && pct destroy <CTID>`.
+- Debug: `bash -x install/motorrad-routenplaner.sh 2>&1 | tee install.log`, im CT `journalctl -u motorrad-routenplaner -n 50`, `journalctl -u caddy -n 30`.
