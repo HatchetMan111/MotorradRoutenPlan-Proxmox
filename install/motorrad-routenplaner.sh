@@ -26,3 +26,24 @@ next_ctid(){ if [[ -n "$CTID" ]]; then echo "$CTID"; else pvesh get /cluster/nex
 require_root; require_pve
 CTID="$(next_ctid)"
 log "CTID=$CTID HOSTNAME=$HOSTNAME (Task-1-Gerüst)"
+ensure_template(){
+  pveam update >/dev/null
+  if ! pveam list "$TEMPLATE_STORE" | grep -q "debian-12-standard"; then
+    pveam download "$TEMPLATE_STORE" "$TEMPLATE"
+  fi
+  msg_ok "Template bereit ($TEMPLATE_STORE:$TEMPLATE)"
+}
+ct_ip(){ pct exec "$CTID" -- ip -4 -o addr show dev eth0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
+create_or_reuse_ct(){
+  if pct status "$CTID" >/dev/null 2>&1; then
+    msg_ok "CT $CTID existiert – Re-Use (Update-Pfad)"
+  else
+    pct create "$CTID" "${TEMPLATE_STORE}:vztmpl/${TEMPLATE}" \
+      --hostname "$HOSTNAME" --cores "$CORES" --memory "$MEMORY_MB" \
+      --rootfs "${STORAGE}:${DISK_GB}" --net0 "name=eth0,bridge=${BRIDGE},ip=dhcp" \
+      --unprivileged 1 --onboot 1 --start 1
+    msg_ok "CT $CTID erstellt ($HOSTNAME, ${CORES}vCPU/${MEMORY_MB}MB/${DISK_GB}GB)"
+  fi
+  pct start "$CTID" 2>/dev/null || true
+  sleep 5
+}
