@@ -1,0 +1,13 @@
+[Unit]
+Description=Motorrad-Routenplaner
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+WorkingDirectory=/opt/motorrad-routenplaner/backend
+EnvironmentFile=/opt/motorrad-routenplaner/backend/.env
+ExecStart=/usr/bin/node /opt/motorrad-routenplaner/backend/dist/index.js
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

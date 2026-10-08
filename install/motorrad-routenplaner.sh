@@ -74,3 +74,23 @@ ENVEOF
 EOF
   msg_ok "App gebaut + .env geschrieben"
 }
+setup_services(){
+  pct push "$CTID" install/motorrad-routenplaner.service /etc/systemd/system/motorrad-routenplaner.service
+  pct exec "$CTID" -- bash -ec "apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && apt-get update && apt-get install -y caddy"
+  pct push "$CTID" install/Caddyfile /etc/caddy/Caddyfile
+  pct exec "$CTID" -- bash -ec "(command -v ufw >/dev/null && ufw allow 80,443,8080/tcp || true); (iptables -C INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null || true)"
+  pct exec "$CTID" -- bash -ec "systemctl daemon-reload && systemctl enable --now motorrad-routenplaner && systemctl enable --now caddy && sleep 3 && systemctl is-active motorrad-routenplaner && systemctl is-active caddy"
+  msg_ok "Services laufen"
+}
+verify_and_print(){
+  pct exec "$CTID" -- bash -ec "curl -fsS http://127.0.0.1:8080/api/health | grep -q '\"ok\":true' && curl -fkSs https://127.0.0.1/api/health | grep -q '\"ok\":true'"
+  IP="$(ct_ip)"; [[ -n "${IP:-}" ]] || die "Keine CT-IP gefunden (DHCP?). Logs: pct exec $CTID -- ip a"
+  msg_ok "Motorrad-Routenplaner läuft in CT $CTID ($IP)"
+  echo "  Desktop: http://$IP:8080"
+  echo "  Handy (GPS): https://$IP/  (Zertifikatswarnung bestätigen, dann GPS aktiv)"
+}
+ensure_template
+create_or_reuse_ct
+setup_app_in_ct
+setup_services
+verify_and_print
