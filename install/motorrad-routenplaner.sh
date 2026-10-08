@@ -47,3 +47,30 @@ create_or_reuse_ct(){
   pct start "$CTID" 2>/dev/null || true
   sleep 5
 }
+setup_app_in_ct(){
+  if [[ -z "$CONTACT_EMAIL" && -t 0 ]]; then read -rp "CONTACT_EMAIL (echte Mail für Nominatim): " CONTACT_EMAIL; fi
+  [[ -n "$CONTACT_EMAIL" ]] || die "CONTACT_EMAIL fehlt. Z.B. CONTACT_EMAIL=du@beispiel.de $0"
+  [[ "$CONTACT_EMAIL" != *example.com* ]] || die "CONTACT_EMAIL darf kein example.com enthalten (Nominatim blockt 403)."
+  pct exec "$CTID" -- bash -es <<EOF
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update && apt-get install -y git curl ca-certificates iproute2
+if ! command -v node >/dev/null || ! node -v | grep -q "v22"; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+fi
+if [[ -d /opt/motorrad-routenplaner/.git ]]; then git -C /opt/motorrad-routenplaner fetch origin && git -C /opt/motorrad-routenplaner checkout $BRANCH && git -C /opt/motorrad-routenplaner pull --ff-only
+else git clone -b $BRANCH https://github.com/$REPO.git /opt/motorrad-routenplaner; fi
+cd /opt/motorrad-routenplaner && npm ci && npm run build
+if grep -q "127.0.0.1" backend/dist/index.js; then sed -i 's/127\.0\.0\.1/0.0.0.0/g' backend/dist/index.js; echo "Bind-Patch 0.0.0.0 angewendet"; fi
+cat > /opt/motorrad-routenplaner/backend/.env <<ENVEOF
+PORT=$APP_PORT
+BROUTER_URL=$BROUTER_URL
+OVERPASS_URL=https://overpass-api.de/api/interpreter
+NOMINATIM_URL=https://nominatim.openstreetmap.org
+AUTOBAHN_URL=https://verkehr.autobahn.de/o/autobahn
+CONTACT_EMAIL=$CONTACT_EMAIL
+ENVEOF
+EOF
+  msg_ok "App gebaut + .env geschrieben"
+}
