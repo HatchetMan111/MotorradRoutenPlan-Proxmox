@@ -232,7 +232,7 @@ bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/MotorradR
 ```
 
 Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/MotorradRoutenPlan-Proxmox/main/install/motorrad-routenplaner.sh)"`.
-Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy. Weitere Variablen: `HTTPS_PORT` (Default 443), `APP_PORT` (Default 8080), `STORAGE`/`TEMPLATE_STORE` (mit Auto-Detect + Override-Hinweis).
+Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy. Weitere Variablen: `CT_HOSTNAME` (Default `motorrad-routenplaner`), `HTTPS_PORT` (Default 443), `APP_PORT` (Default 8080), `STORAGE`/`TEMPLATE_STORE` (mit Auto-Detect + Override-Hinweis).
 
 - Desktop: `http://[LXC-IP]:8080`
 - Handy im gleichen WLAN (mit GPS): `https://[LXC-IP]/` — beim ersten Mal Zertifikatswarnung bestätigen (self-signed, `tls internal`), danach ist `navigator.geolocation` freigegeben. Notlösung: `chrome://flags#unsafely-treat-insecure-origins-as-secure`.

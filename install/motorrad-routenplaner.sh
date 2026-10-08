@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APP_NAME="${APP_NAME:-motorrad-routenplaner}"
-HOSTNAME="${HOSTNAME:-$APP_NAME}"
+# Hinweis: bewusst CT_HOSTNAME statt HOSTNAME – HOSTNAME ist in jeder
+# Shell bereits auf den Proxmox-Hostnamen gesetzt, ein :-Default griffe nie.
+CT_HOSTNAME="${CT_HOSTNAME:-motorrad-routenplaner}"
 CTID="${CTID:-}"
 TEMPLATE="${TEMPLATE:-debian-12-standard_12.7-1_amd64.tar.zst}"
 TEMPLATE_STORE="${TEMPLATE_STORE:-local}"
@@ -58,19 +59,19 @@ resolve_ctid(){
     log "CTID=$CTID explizit gesetzt (Override gewinnt)"
   else
     local found=""
-    found="$(find_ctid_by_hostname "$HOSTNAME" || true)"
+    found="$(find_ctid_by_hostname "$CT_HOSTNAME" || true)"
     if [[ -n "$found" ]]; then
       CTID="$found"
-      log "CT $CTID mit Hostname $HOSTNAME gefunden – Re-Use"
+      log "CT $CTID mit Hostname $CT_HOSTNAME gefunden – Re-Use"
     else
       CTID="$(pvesh get /cluster/nextid)"
-      log "Neue CTID=$CTID (kein CT mit Hostname $HOSTNAME gefunden)"
+      log "Neue CTID=$CTID (kein CT mit Hostname $CT_HOSTNAME gefunden)"
     fi
   fi
 }
 require_root; require_pve
 resolve_ctid
-log "CTID=$CTID HOSTNAME=$HOSTNAME"
+log "CTID=$CTID CT_HOSTNAME=$CT_HOSTNAME"
 ensure_template(){
   pveam update >/dev/null
   if pveam list "$TEMPLATE_STORE" 2>/dev/null | grep -q "$TEMPLATE"; then
@@ -125,7 +126,7 @@ fetch_to_tmp(){
     log "Nutze lokale Datei install/$src"
   else
     log "Keine lokale Datei install/$src – lade $RAW_BASE/$src"
-    wget -qO "$dest" "$RAW_BASE/$src" || die "Download fehlgeschlagen: $RAW_BASE/$src"
+    wget -qO "$dest" "$RAW_BASE/$src" || { local code=$?; die "Download fehlgeschlagen (Exit $code): $RAW_BASE/$src"; }
   fi
 }
 create_or_reuse_ct(){
@@ -133,10 +134,10 @@ create_or_reuse_ct(){
     msg_ok "CT $CTID existiert – Re-Use (Update-Pfad)"
   else
     pct create "$CTID" "${TEMPLATE_STORE}:vztmpl/${TEMPLATE}" \
-      --hostname "$HOSTNAME" --cores "$CORES" --memory "$MEMORY_MB" \
+      --hostname "$CT_HOSTNAME" --cores "$CORES" --memory "$MEMORY_MB" \
       --rootfs "${STORAGE}:${DISK_GB}" --net0 "name=eth0,bridge=${BRIDGE},ip=dhcp" \
       --unprivileged 1 --onboot 1 --start 1
-    msg_ok "CT $CTID erstellt ($HOSTNAME, ${CORES}vCPU/${MEMORY_MB}MB/${DISK_GB}GB)"
+    msg_ok "CT $CTID erstellt ($CT_HOSTNAME, ${CORES}vCPU/${MEMORY_MB}MB/${DISK_GB}GB)"
   fi
   pct start "$CTID" 2>/dev/null || true
   IP="$(wait_for_ip)"
