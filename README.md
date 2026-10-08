@@ -228,10 +228,10 @@ OpenStreetMap (Overpass, Nominatim) · Autobahn-GmbH-API · Open-Meteo (Wetter).
 Auf dem Proxmox-Host als root:
 
 ```bash
-bash -c "$(wget -qLO - https://raw.githubusercontent.com/mzluzifer/motorrad-routenplaner/main/install/motorrad-routenplaner.sh)"
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/MotorradRoutenPlan-Proxmox/main/install/motorrad-routenplaner.sh)"
 ```
 
-Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - https://raw.githubusercontent.com/mzluzifer/motorrad-routenplaner/main/install/motorrad-routenplaner.sh)"`.
+Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/MotorradRoutenPlan-Proxmox/main/install/motorrad-routenplaner.sh)"`.
 Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy. Weitere Variablen: `HTTPS_PORT` (Default 443), `APP_PORT` (Default 8080), `STORAGE`/`TEMPLATE_STORE` (mit Auto-Detect + Override-Hinweis).
 
 - Desktop: `http://[LXC-IP]:8080`
@@ -241,4 +241,4 @@ Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8G
   - Echte Domain/Let's Encrypt: Caddy-Site auf `tls meinedomain.de` umstellen (statt `tls internal`), Ports 80/443 öffentlich erreichbar machen und DNS auf den Host zeigen lassen — dann stellt Caddy automatisch ein gültiges Zertifikat aus.
 - Update: Script erneut laufen lassen (idempotent: git pull + rebuild, kein neuer CT).
 - Deinstall: `pct stop <CTID> && pct destroy <CTID>`.
-- Debug: `bash -x install/motorrad-routenplaner.sh 2>&1 | tee install.log`, im CT `journalctl -u motorrad-routenplaner -n 50`, `journalctl -u caddy -n 30`.
+- Debug: bei Fehlern die komplette Ausgabe posten. Ablauf mit Trace: `wget -qO /tmp/mrp.sh https://raw.githubusercontent.com/HatchetMan111/MotorradRoutenPlan-Proxmox/main/install/motorrad-routenplaner.sh && bash -x /tmp/mrp.sh 2>&1 | tee install.log`, im CT `journalctl -u motorrad-routenplaner -n 50`, `journalctl -u caddy -n 30`.

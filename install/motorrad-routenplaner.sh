@@ -14,9 +14,11 @@ APP_PORT="${APP_PORT:-8080}"
 HTTPS_PORT="${HTTPS_PORT:-443}"
 REPO="${REPO:-mzluzifer/motorrad-routenplaner}"
 BRANCH="${BRANCH:-main}"
+INSTALL_REPO="${INSTALL_REPO:-HatchetMan111/MotorradRoutenPlan-Proxmox}"
+INSTALL_BRANCH="${INSTALL_BRANCH:-main}"
 BROUTER_URL="${BROUTER_URL:-https://brouter.de/brouter}"
 CONTACT_EMAIL="${CONTACT_EMAIL:-}"
-RAW_BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}/install"
+RAW_BASE="https://raw.githubusercontent.com/${INSTALL_REPO}/${INSTALL_BRANCH}/install"
 DIAG_ARMED=0
 log(){ printf '%s %s\n' "[$(date +%H:%M:%S)]" "$*"; }
 msg_ok(){ log "✔ $*"; }
