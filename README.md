@@ -231,11 +231,14 @@ Auf dem Proxmox-Host als root:
 bash -c "$(wget -qLO - https://raw.githubusercontent.com/mzluzifer/motorrad-routenplaner/main/install/motorrad-routenplaner.sh)"
 ```
 
-Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - ...)"`.
-Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy.
+Mit Optionen: `CTID=150 CONTACT_EMAIL=du@echte-mail.de bash -c "$(wget -qLO - https://raw.githubusercontent.com/mzluzifer/motorrad-routenplaner/main/install/motorrad-routenplaner.sh)"`.
+Erstellt LXC `motorrad-routenplaner` (nächste freie ID, Debian 12, 2vCPU/2GB/8GB, onboot=1, DHCP), baut die App, startet systemd + Caddy. Weitere Variablen: `HTTPS_PORT` (Default 443), `APP_PORT` (Default 8080), `STORAGE`/`TEMPLATE_STORE` (mit Auto-Detect + Override-Hinweis).
 
 - Desktop: `http://[LXC-IP]:8080`
 - Handy im gleichen WLAN (mit GPS): `https://[LXC-IP]/` — beim ersten Mal Zertifikatswarnung bestätigen (self-signed, `tls internal`), danach ist `navigator.geolocation` freigegeben. Notlösung: `chrome://flags#unsafely-treat-insecure-origins-as-secure`.
+  - CA-Import: Caddy-`tls internal`-CA aus dem CT holen (`pct exec <CTID> -- cat /var/lib/caddy/pki/authorities/local/root.crt`) und am Handy als vertrauenswürdig importieren — danach keine Warnung mehr.
+  - Hinweis-Flag: der Einzeiler sichert eine vorhandene `/etc/caddy/Caddyfile` vorher per `cp -n` nach `Caddyfile.bak`.
+  - Echte Domain/Let's Encrypt: Caddy-Site auf `tls meinedomain.de` umstellen (statt `tls internal`), Ports 80/443 öffentlich erreichbar machen und DNS auf den Host zeigen lassen — dann stellt Caddy automatisch ein gültiges Zertifikat aus.
 - Update: Script erneut laufen lassen (idempotent: git pull + rebuild, kein neuer CT).
 - Deinstall: `pct stop <CTID> && pct destroy <CTID>`.
 - Debug: `bash -x install/motorrad-routenplaner.sh 2>&1 | tee install.log`, im CT `journalctl -u motorrad-routenplaner -n 50`, `journalctl -u caddy -n 30`.
