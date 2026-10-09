@@ -156,6 +156,12 @@ html, body, #root {
 .w-icon { font-size: 18px; flex: 0 0 auto; width: 22px; text-align: center; }
 
 @media (max-width: 800px) {
+  /* Horizontaler Überlauf: Grid-Items (min-width:auto) + lange Inhalte
+     drücken sonst über den Bildschirmrand. */
+  html, body { overflow-x: clip; }
+  .app > * { min-width: 0; max-width: 100vw; }
+  .weather-controls input[type="date"] { min-width: 0; }
+  .row > * { min-width: 0; }
   /* Mobile-Ansicht: Topbar, Sidebar als Hauptfläche, Karte kompakt unten,
      Statusleiste als Daumen-Action-Bar ganz unten. */
   .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
