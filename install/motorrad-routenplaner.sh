@@ -202,7 +202,9 @@ setup_services(){
   # Eigenes TLS-Zertifikat (deterministisch, inkl. IP-SANs) statt `tls internal`:
   # Caddy stellt ohne konfigurierten Hostnamen kein Zertifikat aus (Handshake
   # Fehler 35), on-demand wäre DHCP-fragil. Regenerieren nur bei IP-Wechsel.
-  pct exec "$CTID" -- bash -ec "apt-get install -y openssl && if ! openssl x509 -in /etc/caddy/motorrad.crt -noout -text 2>/dev/null | grep -Eq 'IP Address:${IP}([^0-9.]|\$)'; then openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /etc/caddy/motorrad.key -out /etc/caddy/motorrad.crt -subj '/CN=motorrad-routenplaner' -addext 'subjectAltName=IP:${IP},IP:127.0.0.1,DNS:motorrad-routenplaner' && chmod 600 /etc/caddy/motorrad.key && echo 'TLS-Zertifikat (10J, SANs ${IP}/127.0.0.1) erzeugt'; else echo 'TLS-Zertifikat passt zur IP ${IP}'; fi"
+  # Caddy läuft als User caddy (Debian-Unit) – Key/Cert müssen ihm gehören,
+  # sonst startet der Service nicht (nur validate läuft als root und passiert).
+  pct exec "$CTID" -- bash -ec "apt-get install -y openssl && id -u caddy >/dev/null 2>&1 || useradd --system --home /var/lib/caddy --shell /usr/sbin/nologin caddy; if ! openssl x509 -in /etc/caddy/motorrad.crt -noout -text 2>/dev/null | grep -Eq 'IP Address:${IP}([^0-9.]|\$)'; then openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /etc/caddy/motorrad.key -out /etc/caddy/motorrad.crt -subj '/CN=motorrad-routenplaner' -addext 'subjectAltName=IP:${IP},IP:127.0.0.1,DNS:motorrad-routenplaner' && echo 'TLS-Zertifikat (10J, SANs ${IP}/127.0.0.1) erzeugt'; else echo 'TLS-Zertifikat passt zur IP ${IP}'; fi; chown caddy:caddy /etc/caddy/motorrad.key /etc/caddy/motorrad.crt && chmod 600 /etc/caddy/motorrad.key && chmod 644 /etc/caddy/motorrad.crt"
   pct exec "$CTID" -- bash -ec "(command -v ufw >/dev/null && ufw allow 80,${HTTPS_PORT},${APP_PORT}/tcp || true); (iptables -C INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true)"
   # Restart statt Reload: nach Paketwechsel (z.B. 2.11->2.6) spricht das neue
   # caddy-Binary ggf. gegen die Admin-API des alten Prozesses – Restart umgeht
