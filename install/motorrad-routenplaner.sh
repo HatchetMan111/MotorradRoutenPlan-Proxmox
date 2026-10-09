@@ -4,7 +4,7 @@ set -euo pipefail
 # Shell bereits auf den Proxmox-Hostnamen gesetzt, ein :-Default griffe nie.
 CT_HOSTNAME="${CT_HOSTNAME:-motorrad-routenplaner}"
 CTID="${CTID:-}"
-TEMPLATE="${TEMPLATE:-debian-12-standard_12.7-1_amd64.tar.zst}"
+TEMPLATE="${TEMPLATE:-}"
 TEMPLATE_STORE="${TEMPLATE_STORE:-local}"
 STORAGE="${STORAGE:-local-lvm}"
 BRIDGE="${BRIDGE:-vmbr0}"
@@ -76,18 +76,20 @@ resolve_ctid
 log "CTID=$CTID CT_HOSTNAME=$CT_HOSTNAME"
 ensure_template(){
   pveam update >/dev/null
-  if pveam list "$TEMPLATE_STORE" 2>/dev/null | grep -q "$TEMPLATE"; then
+  if [[ -n "$TEMPLATE" ]] && pveam list "$TEMPLATE_STORE" 2>/dev/null | grep -q "$TEMPLATE"; then
     msg_ok "Template bereit ($TEMPLATE_STORE:$TEMPLATE)"
     return 0
   fi
-  log "Template $TEMPLATE nicht in Store $TEMPLATE_STORE – suche Fallback (pveam available --section system)"
+  log "Suche aktuelles debian-12-standard Template (pveam available --section system)"
   local fallback=""
   fallback="$(pveam available --section system 2>/dev/null | grep "debian-12-standard" | tail -1 | awk '{print $2}')"
   if [[ -n "$fallback" ]]; then
     TEMPLATE="$fallback"
-    log "Fallback-Template: $TEMPLATE"
+    log "Template gewählt: $TEMPLATE"
+  elif [[ -z "$TEMPLATE" ]]; then
+    die "Kein debian-12-standard Template gefunden. Hinweis: TEMPLATE=<name> TEMPLATE_STORE=<store> setzen."
   else
-    log "Kein debian-12-standard Template in 'pveam available --section system' gefunden – versuche $TEMPLATE direkt"
+    log "Kein neueres Template gefunden – versuche $TEMPLATE direkt"
   fi
   pveam download "$TEMPLATE_STORE" "$TEMPLATE" || die "Template-Download fehlgeschlagen. Hinweis: TEMPLATE=<name> TEMPLATE_STORE=<store> setzen (z.B. TEMPLATE=$TEMPLATE TEMPLATE_STORE=$TEMPLATE_STORE)"
   msg_ok "Template bereit ($TEMPLATE_STORE:$TEMPLATE)"
@@ -99,7 +101,7 @@ ensure_storage(){
   fi
   log "Storage $STORAGE nicht in 'pvesm status' – suche Fallback (erster aktiver dir/lvm Store mit Platz)"
   local fallback=""
-  fallback="$(pvesm status 2>/dev/null | awk 'NR>1 && ($2=="dir" || $2=="lvm" || $2=="lvmthin" || $2=="zfspool") && $5>0 {print $1; exit}')"
+  fallback="$(pvesm status 2>/dev/null | awk 'NR>1 && ($2=="dir" || $2=="lvm" || $2=="lvmthin" || $2=="zfspool") && $6>0 {print $1; exit}')"
   if [[ -n "$fallback" ]]; then
     log "Fallback-Storage: $fallback (Hinweis: STORAGE=<store> setzt Override, z.B. STORAGE=$STORAGE)"
     STORAGE="$fallback"
@@ -181,7 +183,7 @@ setup_services(){
   sed "s/:443/:${HTTPS_PORT}/" "$caddy_tmp" > "$caddy_gen"
   pct push "$CTID" "$svc_tmp" /etc/systemd/system/motorrad-routenplaner.service
   rm -f "$svc_tmp"
-  pct exec "$CTID" -- bash -ec "apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && apt-get update && apt-get install -y caddy"
+  pct exec "$CTID" -- bash -ec "apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && apt-get update && apt-get install -y caddy"
   pct exec "$CTID" -- bash -ec "cp -n /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak 2>/dev/null || true"
   pct push "$CTID" "$caddy_gen" /etc/caddy/Caddyfile
   rm -f "$caddy_tmp" "$caddy_gen"
@@ -197,8 +199,8 @@ verify_and_print(){
   DIAG_ARMED=1
   # Backend braucht nach Start einige Sekunden (Profile laden), Caddy ggf.
   # ebenfalls – daher Retry-Loop statt einzelnem Curl (max ~90s).
-  local ok_app=0 ok_caddy=0 i
-  for i in $(seq 1 18); do
+  local ok_app=0 ok_caddy=0
+  for _ in $(seq 1 18); do
     pct exec "$CTID" -- bash -c "curl -fsS --max-time 10 http://127.0.0.1:${APP_PORT}/api/health | grep -q '\"ok\":true'" 2>/dev/null && ok_app=1 || true
     pct exec "$CTID" -- bash -c "curl -fkSs --max-time 10 https://127.0.0.1:${HTTPS_PORT}/api/health | grep -q '\"ok\":true'" 2>/dev/null && ok_caddy=1 || true
     if [[ $ok_app -eq 1 && $ok_caddy -eq 1 ]]; then break; fi
