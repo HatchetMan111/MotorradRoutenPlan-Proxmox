@@ -112,8 +112,8 @@ ensure_storage(){
 }
 ct_ip(){ pct exec "$CTID" -- ip -4 -o addr show dev eth0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
 wait_for_ip(){
-  local ip="" i
-  for i in $(seq 1 12); do
+  local ip=""
+  for _ in $(seq 1 12); do
     ip="$(ct_ip || true)"
     if [[ -n "$ip" ]]; then echo "$ip"; return 0; fi
     sleep 5
