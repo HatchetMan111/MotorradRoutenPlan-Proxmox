@@ -10,7 +10,7 @@ STORAGE="${STORAGE:-local-lvm}"
 BRIDGE="${BRIDGE:-vmbr0}"
 CORES="${CORES:-2}"
 MEMORY_MB="${MEMORY_MB:-2048}"
-DISK_GB="${DISK_GB:-8}"
+DISK_GB="${DISK_GB:-12}"
 APP_PORT="${APP_PORT:-8080}"
 HTTPS_PORT="${HTTPS_PORT:-443}"
 REPO="${REPO:-mzluzifer/motorrad-routenplaner}"
@@ -161,7 +161,14 @@ if ! command -v node >/dev/null || ! node -v | grep -q "v22"; then
 fi
 if [[ -d /opt/motorrad-routenplaner/.git ]]; then git -C /opt/motorrad-routenplaner fetch origin && git -C /opt/motorrad-routenplaner checkout "$BRANCH" && git -C /opt/motorrad-routenplaner pull --ff-only
 else git clone -b "$BRANCH" "https://github.com/$REPO.git" /opt/motorrad-routenplaner; fi
+# Platte ist knapp (8-GB-CTs liefen voll: npm-Cache + apt-Archive): aufräumen, Stand loggen.
+df -h / | tail -n 1
+apt-get clean
+npm cache clean --force 2>/dev/null || true
+journalctl --vacuum-size=100M 2>/dev/null || true
 cd /opt/motorrad-routenplaner && npm ci && npm run build
+# Build-Artefakte hart prüfen – kein stilles Weiterlaufen bei halbem Build (ENOSPC!).
+[[ -f backend/dist/index.js && -f frontend/dist/index.html ]] || { echo "BUILD-ARTEFAKTE FEHLEN (backend/dist/index.js, frontend/dist/index.html) – Platte voll? Siehe df oben."; df -h /; exit 1; }
 if grep -q "127.0.0.1" backend/dist/index.js; then sed -i 's/127\.0\.0\.1/0.0.0.0/g' backend/dist/index.js; echo "Bind-Patch 0.0.0.0 angewendet"; fi
 cat > /opt/motorrad-routenplaner/backend/.env <<ENVEOF
 PORT="$APP_PORT"
