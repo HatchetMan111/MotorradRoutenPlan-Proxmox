@@ -17,6 +17,8 @@ interface Props {
   hoverM: number | null;
   /** Hover-Position melden (vom Überfahren des Höhenprofils). */
   onHoverM: (m: number | null) => void;
+  /** Navigations-Vollbild umschalten (Karte ohne Sidebar/Topbar). */
+  onToggleNav: () => void;
 }
 
 /** Höhe (interpoliert) an kumulierter Distanz `m` aus den Stützstellen. */
@@ -79,6 +81,7 @@ export default function StatusBar({
   onSelectRoute,
   hoverM,
   onHoverM,
+  onToggleNav,
 }: Props) {
   const { t } = useI18n();
   const totalM = route?.distanceM ?? 0;
@@ -129,6 +132,9 @@ export default function StatusBar({
           </>
         )}
       </div>
+      <button className="sb-nav" onClick={onToggleNav} title={t("nav.enter")}>
+        {t("nav.enter")}
+      </button>
 
       <div className="sb-mid">
         {routeLoading && <span className="spinner">{t("sb.calculating")}</span>}

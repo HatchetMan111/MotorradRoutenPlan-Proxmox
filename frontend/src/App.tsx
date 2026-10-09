@@ -55,6 +55,16 @@ export default function App() {
   const [routeError, setRouteError] = useState<string | null>(null);
   // Gewählte Variante: 0 = Hauptroute, 1..n = Alternative. Bei Neuberechnung -> 0.
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
+  // Navigations-Vollbild: nur Karte + Kompakt-Statusleiste (für die Fahrt).
+  const [navMode, setNavMode] = useState(false);
+  useEffect(() => {
+    if (!navMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navMode]);
 
   // Alle Varianten (Haupt + Alternativen) und die aktuell aktive Route.
   const allRoutes = useMemo<RouteResult[]>(
@@ -395,7 +405,7 @@ export default function App() {
 
   return (
     <div
-      className="app"
+      className={`app${navMode ? " nav" : ""}`}
       style={{ ["--sidebar-w" as string]: `${sidebarWidth}px` } as React.CSSProperties}
     >
       <TopBar />
@@ -450,6 +460,11 @@ export default function App() {
       />
       <div className="resizer" onMouseDown={startResize} title="Breite ziehen" />
       <div className="main">
+        {navMode && (
+          <button className="nav-exit" onClick={() => setNavMode(false)}>
+            {t("nav.exit")}
+          </button>
+        )}
         <MapView
           waypoints={waypoints}
           route={activeRoute}
@@ -477,6 +492,7 @@ export default function App() {
           onSelectRoute={setSelectedRouteIdx}
           hoverM={hoverM}
           onHoverM={setHoverM}
+          onToggleNav={() => setNavMode((v) => !v)}
         />
       </div>
     </div>

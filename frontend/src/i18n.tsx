@@ -35,6 +35,9 @@ const de: Dict = {
   "donate.qrAlt": "PayPal-Spenden-QR-Code",
   "donate.qrHint": "QR-Code scannen zum Spenden",
 
+  "nav.enter": "🧭 Navigation",
+  "nav.exit": "✕ Beenden",
+
   "wp.title": "Wegpunkte",
   "wp.locating": "📍 Standort wird ermittelt …",
   "wp.useLocation": "📍 Aktueller Standort als Start",
@@ -146,6 +149,9 @@ const en: Dict = {
   "donate.qrAlt": "PayPal donation QR code",
   "donate.qrHint": "Scan the QR code to donate",
 
+  "nav.enter": "🧭 Navigate",
+  "nav.exit": "✕ Exit",
+
   "wp.title": "Waypoints",
   "wp.locating": "📍 Locating …",
   "wp.useLocation": "📍 Current location as start",
@@ -256,6 +262,9 @@ const es: Dict = {
   "donate.button": "❤ Donar con PayPal",
   "donate.qrAlt": "Código QR de donación de PayPal",
   "donate.qrHint": "Escanea el código QR para donar",
+
+  "nav.enter": "🧭 Navegar",
+  "nav.exit": "✕ Salir",
 
   "wp.title": "Puntos de ruta",
   "wp.locating": "📍 Localizando …",
