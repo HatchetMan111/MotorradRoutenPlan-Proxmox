@@ -176,14 +176,19 @@ EOF
 }
 setup_services(){
   DIAG_ARMED=1
-  local svc_tmp caddy_tmp caddy_gen
-  svc_tmp="$(mktemp)"; caddy_tmp="$(mktemp)"; caddy_gen="$(mktemp)"
+  local svc_tmp caddy_tmp caddy_gen fb_tmp
+  svc_tmp="$(mktemp)"; caddy_tmp="$(mktemp)"; caddy_gen="$(mktemp)"; fb_tmp="$(mktemp)"
   fetch_to_tmp "motorrad-routenplaner.service" "$svc_tmp"
   fetch_to_tmp "Caddyfile" "$caddy_tmp"
+  fetch_to_tmp "caddy-fallback.service" "$fb_tmp"
   sed "s/:443/:${HTTPS_PORT}/" "$caddy_tmp" > "$caddy_gen"
   pct push "$CTID" "$svc_tmp" /etc/systemd/system/motorrad-routenplaner.service
   rm -f "$svc_tmp"
-  pct exec "$CTID" -- bash -ec "apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && apt-get update && apt-get install -y caddy"
+  pct push "$CTID" "$fb_tmp" /tmp/caddy-fallback.service
+  rm -f "$fb_tmp"
+  # Caddy-Installation: Cloudsmith liefert 402 (Heartbleed der Paketquelle ist tot),
+  # daher Distro-Paket bevorzugen, GitHub-Release als Fallback.
+  pct exec "$CTID" -- bash -ec "rm -f /etc/apt/sources.list.d/caddy-stable.list /etc/apt/sources.list.d/caddy-testing.list; apt-get update; if apt-cache show caddy 2>/dev/null | grep -q '^Package: caddy'; then apt-get install -y caddy; else CADDY_VER='2.11.7'; echo \"Caddy nicht in Distro-Quellen – Fallback GitHub-Release v\$CADDY_VER\"; cd /tmp && curl -fsSL -o caddy.tgz \"https://github.com/caddyserver/caddy/releases/download/v\$CADDY_VER/caddy_\${CADDY_VER}_linux_amd64.tar.gz\" && tar -xzf caddy.tgz caddy && install -m 0755 caddy /usr/bin/caddy && rm -f caddy.tgz && id -u caddy >/dev/null 2>&1 || useradd --system --home /var/lib/caddy --shell /usr/sbin/nologin caddy; mkdir -p /etc/caddy /var/lib/caddy && chown caddy:caddy /etc/caddy /var/lib/caddy && cp /tmp/caddy-fallback.service /lib/systemd/system/caddy.service; fi"
   pct exec "$CTID" -- bash -ec "cp -n /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak 2>/dev/null || true"
   pct push "$CTID" "$caddy_gen" /etc/caddy/Caddyfile
   rm -f "$caddy_tmp" "$caddy_gen"
